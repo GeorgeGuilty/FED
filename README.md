@@ -1,4 +1,4 @@
-# FED
+# FFT Edge Detector (FED)
 
 Este es un proyecto sobre el desarrollo de un algoritmo de detección de esquinas utilizando la transformada de Fourier basandose en el articulo llamado "A New Edge Detection Algorithm Using FFT Procedure"
 
