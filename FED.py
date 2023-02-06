@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-img = cv2.imread('Ex1.png', 0)
-img = cv2.GaussianBlur(img,(7,7),0)
+img = cv2.imread('Ex2.png', 0)
+img = cv2.GaussianBlur(img,(3,3),0)
 cv2.imshow('Original',img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
@@ -19,7 +19,7 @@ cv2.destroyAllWindows()
 u,v = np.meshgrid(range(dft.shape[1]),range(dft.shape[0]))
 d = np.sqrt((u-dft.shape[1]/2)**2+(v-dft.shape[0]/2)**2)+1
 alpha = 1
-d0 = 1000
+d0 = 10000
 n = 1
 h = 1/(1+alpha*((d0/d)**(2*n)))
 h = np.stack((h,h),axis=2)
@@ -45,11 +45,33 @@ cv2.imshow('Highpass filter',imgshow)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-img_blur = img_back
-img_blur = cv2.GaussianBlur(img_blur,(15,15),0)
+img_blur = cv2.GaussianBlur(img_back,(9,9),0)
 
 imgshow = (img_blur-np.min(img_blur))/(np.max(img_blur)-np.min(img_blur))
-cv2.imshow('Artifact Suppresion by Gaussian Blur',imgshow)
+cv2.imshow('Artifact Suppresion by Gaussian Blur Part 1',imgshow)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+imgMul = ((img_back.max()-img_back)**1)*(img_blur)
+
+imgshow = (imgMul-np.min(imgMul))/(np.max(imgMul)-np.min(imgMul))
+cv2.imshow('Artifact Suppresion by Gaussian Blur Part 2',imgshow)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+gamma = 0.05
+
+img_thr = np.where(imgMul >= gamma*imgMul.max(), imgMul,0)
+
+imgshow = (img_thr-np.min(img_thr))/(np.max(img_thr)-np.min(img_thr))
+cv2.imshow('Thresholding 1',imgshow)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+img_blur = cv2.GaussianBlur(img_thr,(3,3),0)
+
+imgshow = (img_blur-np.min(img_blur))/(np.max(img_blur)-np.min(img_blur))
+cv2.imshow('Gaussian Blur',imgshow)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
@@ -79,16 +101,16 @@ cv2.imshow('Thresholding 2',imgshow)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-nb_blobs, im_with_separated_blobs, stats, _ = cv2.connectedComponentsWithStats(img_thr)
-sizes = stats[:, -1]
-sizes = sizes[1:]
-nb_blobs -= 1
-min_size = 30
-im_result = np.zeros_like(img_thr)
-for blob in range(nb_blobs):
-    if sizes[blob] >= min_size:
-        im_result[im_with_separated_blobs == blob + 1] = 255
+# nb_blobs, im_with_separated_blobs, stats, _ = cv2.connectedComponentsWithStats(img_thr)
+# sizes = stats[:, -1]
+# sizes = sizes[1:]
+# nb_blobs -= 1
+# min_size = 7
+# im_result = np.zeros_like(img_thr)
+# for blob in range(nb_blobs):
+#     if sizes[blob] >= min_size:
+#         im_result[im_with_separated_blobs == blob + 1] = 255
 
-cv2.imshow('Removing small blobs',im_result)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# cv2.imshow('Removing small blobs',im_result)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
