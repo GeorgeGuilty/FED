@@ -1,116 +1,60 @@
 import cv2
 import numpy as np
 
-img = cv2.imread('Ex2.png', 0)
-img = cv2.GaussianBlur(img,(3,3),0)
-cv2.imshow('Original',img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+def FED(img, d0 = 1000,m = 5,g=0.05,bks1=13,bks2=3,cc=-1):
+    if len(img.shape) > 2 or len(img.shape) == 0:
+        raise ValueError('Only grayscale images are allowed')
+    # Import Image and lil blur
+    img = cv2.GaussianBlur(img,(3,3),0)
+    # DFT
+    dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
+    dft_shift = np.fft.fftshift(dft)
+    # Apply highpass filter to DFT
+    u,v = np.meshgrid(range(dft.shape[1]),range(dft.shape[0]))
+    d = np.sqrt((u-dft.shape[1]/2)**2+(v-dft.shape[0]/2)**2)+1
+    h = 1/(1+((d0/d)**(2)))
+    h = np.stack((h,h),axis=2)
+    fh = dft_shift*h
+    # IDFT plus margin to remove noise on the picture frame
+    f_ishift = np.fft.ifftshift(fh)
+    img_back = cv2.idft(f_ishift)
+    margin = np.ones_like(img)
+    margin[0:m,:] = 0
+    margin[-1:(-1-m):-1,:] = 0
+    margin[:,0:m] = 0
+    margin[:,-1:(-1-m):-1] = 0
+    img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])*margin
+    # Remove noise and apply blur for wider edges
+    img_thr = np.where(img_back >= g*img_back.max(), img_back,0)
+    img_blur = cv2.GaussianBlur(img_thr,(bks1,bks1),0)
+    # Apply threshold and final image is delivered
+    img_thr = ((img_blur-np.min(img_blur))/(np.max(img_blur)-np.min(img_blur))*255).astype(np.uint8)
+    img_thr = cv2.adaptiveThreshold(img_thr,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,bks2,cc)
+    return img_thr
 
-dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
-dft_shift = np.fft.fftshift(dft)
-
-imgshow = np.log(cv2.magnitude(dft_shift[:, :, 0], dft_shift[:, :, 1])+1)
-imgshow = (imgshow-np.min(imgshow))/(np.max(imgshow)-np.min(imgshow))
-cv2.imshow('DFT',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-u,v = np.meshgrid(range(dft.shape[1]),range(dft.shape[0]))
-d = np.sqrt((u-dft.shape[1]/2)**2+(v-dft.shape[0]/2)**2)+1
-alpha = 1
-d0 = 10000
-n = 1
-h = 1/(1+alpha*((d0/d)**(2*n)))
-h = np.stack((h,h),axis=2)
-fh = dft_shift*h
-
-imgshow = np.log(cv2.magnitude(fh[:, :, 0], fh[:, :, 1])+1)
-imgshow = (imgshow-np.min(imgshow))/(np.max(imgshow)-np.min(imgshow))
-cv2.imshow('DFT with highpass filter',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-f_ishift = np.fft.ifftshift(fh)
-img_back = cv2.idft(f_ishift)
-margin = np.ones_like(img)
-margin[0:2,:] = 0
-margin[-1:-3:-1,:] = 0
-margin[:,0:2] = 0
-margin[:,-1:-3:-1] = 0
-img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])*margin
-
-imgshow = (img_back-np.min(img_back))/(np.max(img_back)-np.min(img_back))
-cv2.imshow('Highpass filter',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-img_blur = cv2.GaussianBlur(img_back,(9,9),0)
-
-imgshow = (img_blur-np.min(img_blur))/(np.max(img_blur)-np.min(img_blur))
-cv2.imshow('Artifact Suppresion by Gaussian Blur Part 1',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-imgMul = ((img_back.max()-img_back)**1)*(img_blur)
-
-imgshow = (imgMul-np.min(imgMul))/(np.max(imgMul)-np.min(imgMul))
-cv2.imshow('Artifact Suppresion by Gaussian Blur Part 2',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-gamma = 0.05
-
-img_thr = np.where(imgMul >= gamma*imgMul.max(), imgMul,0)
-
-imgshow = (img_thr-np.min(img_thr))/(np.max(img_thr)-np.min(img_thr))
-cv2.imshow('Thresholding 1',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-img_blur = cv2.GaussianBlur(img_thr,(3,3),0)
-
-imgshow = (img_blur-np.min(img_blur))/(np.max(img_blur)-np.min(img_blur))
-cv2.imshow('Gaussian Blur',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-img_blur *= -1
-
-img_supr = cv2.Laplacian(img_blur,cv2.CV_64FC1)
-
-imgshow = ((img_supr-np.min(img_supr))/(np.max(img_supr)-np.min(img_supr))*255).astype(np.uint8)
-
-v, c = np.unique(imgshow,return_counts=True)
-
-thr = (v[np.argsort(c)[-1]]/255)*(np.max(img_supr)-np.min(img_supr))+np.min(img_supr)
-
-img_thr = np.where(img_supr >= thr, img_supr,0)
-
-imgshow = (img_thr-np.min(img_thr))/(np.max(img_thr)-np.min(img_thr))
-cv2.imshow('Laplacian filter',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-gamma = 0.05
-
-img_thr = np.where(img_supr >= gamma*img_supr.max(), 255,0).astype(np.uint8)
-
-imgshow = (img_thr-np.min(img_thr))/(np.max(img_thr)-np.min(img_thr))
-cv2.imshow('Thresholding 2',imgshow)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-# nb_blobs, im_with_separated_blobs, stats, _ = cv2.connectedComponentsWithStats(img_thr)
-# sizes = stats[:, -1]
-# sizes = sizes[1:]
-# nb_blobs -= 1
-# min_size = 7
-# im_result = np.zeros_like(img_thr)
-# for blob in range(nb_blobs):
-#     if sizes[blob] >= min_size:
-#         im_result[im_with_separated_blobs == blob + 1] = 255
-
-# cv2.imshow('Removing small blobs',im_result)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+if __name__ == '__main__':
+    # img = cv2.imread('Ex1.png',0)
+    # cv2.imshow('FED', FED(img))
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    vid = cv2.VideoCapture(0)
+  
+    while(True):
+        
+        # Capture the video frame
+        # by frame
+        ret, frame = vid.read()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+        # Display the resulting frame
+        cv2.imshow('frame',  FED(gray))
+        # the 'q' button is set as the
+        # quitting button you may use any
+        # desired button of your choice
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    # After the loop release the cap object
+    vid.release()
+    # Destroy all the windows
+    cv2.destroyAllWindows()
